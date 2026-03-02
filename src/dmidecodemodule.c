@@ -1073,7 +1073,6 @@ initdmidecodemod(void)
 
         // Assign this options struct to the module as well with a destructor, that way it will
         // clean up the memory for us.
-        // TODO: destructor has wrong type under py3?
         PyModule_AddObject(module, "options", PyCapsule_New(opt, NULL, destruct_options));
         global_options = opt;
 #ifdef IS_PY3K

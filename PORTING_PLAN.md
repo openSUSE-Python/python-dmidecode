@@ -14,10 +14,11 @@ Porting work is in progress on branch `xml-elementtree-port`.
 
 Known gaps/blockers right now:
 
-- Build still links against `xml2mod` (Python libxml2 bindings helper) via `src/setup_common.py`, which breaks builds on systems without those bindings installed. (Next step: remove this.)
+- Build no longer force-links `xml2mod` via `src/setup_common.py` (no Python libxml2 bindings required).
 - Python 3 capsule cleanup must free the `options` struct, not the capsule object (fix crash-on-exit / invalid free).
-- Example `examples/dmidump.py` still uses libxml2-only APIs (`saveFormatFileEnc()`, `xpathNewContext()`).
-- Packaging metadata still depends on Python libxml2 bindings (`debian/control`, `contrib/python-dmidecode.spec`).
+- Example `examples/dmidump.py` updated to use ElementTree wrappers.
+- CI/packaging metadata must not require Python libxml2 bindings.
+- CI configuration still installs Python libxml2 bindings (`.travis.yml`).
 - libxml2 C library is still used throughout the C codebase for XML construction (the current work removes Python libxml2 *bindings* usage first).
 
 ## Current State Analysis
@@ -401,7 +402,7 @@ Status: 🚧 In progress (unit test type checks updated; broader behavioral cove
 - [~] Update Python API to use ElementTree (core switched; compatibility methods pending)
 - [~] Modify C extension for ElementTree compatibility (xmlapi bridge done; build/cleanup pending)
 - [~] Update test suite (type checks updated; more assertions pending)
-- [ ] Fix build to remove `xml2mod` linking requirement
+- [x] Fix build to remove `xml2mod` linking requirement
 - [ ] Update examples to work with ElementTree wrappers
 - [ ] Drop Python libxml2 binding dependencies from packaging
 - [ ] Performance testing and optimization

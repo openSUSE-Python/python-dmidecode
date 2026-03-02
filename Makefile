@@ -61,11 +61,9 @@ SHELL	:= /bin/bash
 
 all : build dmidump
 
-build: $(PY_TAG)-dmidecodemod.so
-$(PY_TAG)-dmidecodemod.so: $(SO)
-	cp $< $@
-$(SO):
+build:
 	$(PY_BIN) src/setup.py build
+	cp "$(SO)" "$(PY_TAG)-dmidecodemod.so"
 
 dmidump : src/util.o src/efi.o src/dmilog.o
 	$(CC) -o $@ src/dmidump.c $^ -g -Wall -D_DMIDUMP_MAIN_

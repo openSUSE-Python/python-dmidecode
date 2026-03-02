@@ -103,7 +103,7 @@ rm -rf $RPM_BUILD_ROOT
 - Only build the python-dmidecode module, not everything
 
 * Wed Jul 13 2009 David Sommerseth <davids@redhat.com> - 3.10.6-5
-- Added missing BuildRequres for libxml2-python
+- Added missing BuildRequres for libxml2-python (historical; no longer required for ElementTree port)
 
 * Wed Jul 13 2009 David Sommerseth <davids@redhat.com> - 3.10.6-4
 - Added missing BuildRequres for python-devel
