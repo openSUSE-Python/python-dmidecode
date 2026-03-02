@@ -10,15 +10,13 @@ Group: System Environment/Libraries
 URL: http://projects.autonomy.net.au/python-dmidecode/
 Source0: http://src.autonomy.net.au/python-dmidecode/%{name}-%{version}.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
-Requires: libxml2-python
-BuildRequires: libxml2-python
 BuildRequires: libxml2-devel
 BuildRequires: python-devel
 
 %description
 python-dmidecode is a python extension module that uses the
 code-base of the 'dmidecode' utility, and presents the data
-as python data structures or as XML data using libxml2.
+as python data structures or as XML data.
 
 %prep
 %setup -q
@@ -121,4 +119,3 @@ rm -rf $RPM_BUILD_ROOT
 
 * Sat Mar  7 2009 Clark Williams <williams@redhat.com> - 2.10.3-1
 - Initial build.
-

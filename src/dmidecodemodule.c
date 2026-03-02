@@ -42,7 +42,6 @@
 #include <Python.h>
 
 #include <libxml/tree.h>
-#include "libxml_wrap.h"
 
 #include "dmidecodemodule.h"
 #include "dmixml.h"
@@ -479,7 +478,7 @@ xmlNode *__dmidecode_xml_getsection(options *opt, const char *section) {
                 if(opt->type == -1) {
                         char *err = log_retrieve(opt->logdata, LOG_ERR);
                         log_clear_partial(opt->logdata, LOG_ERR, 0);
-                        _pyReturnError(PyExc_RuntimeError, "Invalid type id '%s' -- %s", typeid, err);
+                        _pyReturnError(PyExc_RuntimeError, __FILE__, __LINE__, "Invalid type id '%s' -- %s", typeid, err);
                         free(err);
                         return NULL;
                 }
@@ -690,18 +689,18 @@ static PyObject *dmidecode_get_type(PyObject * self, PyObject * args)
         return pydata;
 }
 
-static PyObject *dmidecode_xmlapi(PyObject *self, PyObject *args, PyObject *keywds)
+static PyObject *dmidecode_xmlapi(PyObject *self, PyObject *args)
 {
-        static char *keywordlist[] = {"query_type", "result_type", "section", "typeid", NULL};
         PyObject *pydata = NULL;
-        xmlDoc *dmixml_doc = NULL;
+        xmlDoc *temp_doc = NULL;
         xmlNode *dmixml_n = NULL;
+        xmlChar *xml_buffer = NULL;
         char *sect_query = NULL, *qtype = NULL, *rtype = NULL;
         int type_query = -1;
+        int buffer_size = 0;
 
-        // Parse the keywords - we only support keywords, as this is an internal API
-        if( !PyArg_ParseTupleAndKeywords(args, keywds, "ss|si", keywordlist,
-                                         &qtype, &rtype, &sect_query, &type_query) ) {
+        // Parse arguments - we use a simpler interface for compatibility
+        if( !PyArg_ParseTuple(args, "ss|si", &qtype, &rtype, &sect_query, &type_query) ) {
                 return NULL;
         }
 
@@ -735,27 +734,35 @@ static PyObject *dmidecode_xmlapi(PyObject *self, PyObject *args, PyObject *keyw
                 return NULL;
         }
 
-        // Check for sensible return type and wrap the correct type into a Python Object
-        switch( *rtype ) {
-        case 'n':
-                pydata = libxml_xmlNodePtrWrap((xmlNode *) dmixml_n);
-                break;
-
-        case 'd':
-                dmixml_doc = xmlNewDoc((xmlChar *) "1.0");
-                if( dmixml_doc == NULL ) {
-                        PyReturnError(PyExc_MemoryError, "Could not create new XML document");
-                }
-                xmlDocSetRootElement(dmixml_doc, dmixml_n);
-                pydata = libxml_xmlDocPtrWrap((xmlDoc *) dmixml_doc);
-                break;
-
-        default:
-                PyReturnError(PyExc_TypeError, "Internal error - invalid result type '%c'", *rtype);
+        // Convert the XML node to a string representation
+        // Use the variables declared at function scope
+        
+        // Create a temporary document to hold our node
+        temp_doc = xmlNewDoc((xmlChar *) "1.0");
+        if( temp_doc == NULL ) {
+                PyReturnError(PyExc_MemoryError, "Could not create temporary XML document");
+        }
+        
+        // Set the node as root element
+        xmlDocSetRootElement(temp_doc, dmixml_n);
+        
+        // Serialize the document to a string buffer
+        xmlDocDumpMemory(temp_doc, &xml_buffer, &buffer_size);
+        
+        // Free the temporary document (this doesn't free the original node)
+        xmlFreeDoc(temp_doc);
+        
+        // Create Python string from the XML buffer
+        pydata = PyBytes_FromStringAndSize((const char *)xml_buffer, buffer_size);
+        
+        // Free the XML buffer
+        xmlFree(xml_buffer);
+        
+        if( pydata == NULL ) {
+                PyReturnError(PyExc_MemoryError, "Could not create Python string from XML");
         }
 
-        // Return XML data
-        Py_INCREF(pydata);
+        // Return XML data as string
         return pydata;
 }
 
@@ -913,7 +920,7 @@ static PyMethodDef DMIDataMethods[] = {
         {(char *)"pythonmap", dmidecode_set_pythonxmlmap, METH_O,
          (char *) "Use another python dict map definition. The default file is " PYTHON_XML_MAP},
 
-        {(char *)"xmlapi", dmidecode_xmlapi, METH_VARARGS | METH_KEYWORDS,
+        {(char *)"xmlapi", dmidecode_xmlapi, METH_VARARGS,
          (char *) "Internal API for retrieving data as raw XML data"},
 
 
@@ -926,12 +933,16 @@ static PyMethodDef DMIDataMethods[] = {
         {NULL, NULL, 0, NULL}
 };
 
-void destruct_options(void *ptr)
+void destruct_options(PyObject *ptr)
 {
+        void *actual_ptr = ptr;
 #ifdef IS_PY3K
-        ptr = PyCapsule_GetPointer(ptr, NULL);
+        actual_ptr = PyCapsule_GetPointer(ptr, NULL);
 #endif
-        options *opt = (options *) ptr;
+        if( actual_ptr == NULL ) {
+                return;
+        }
+        options *opt = (options *) actual_ptr;
 
         if( opt->mappingxml != NULL ) {
                 xmlFreeDoc(opt->mappingxml);
@@ -965,7 +976,7 @@ void destruct_options(void *ptr)
                 log_close(opt->logdata);
         }
 
-        free(ptr);
+        free(actual_ptr);
 }
 
 #ifdef IS_PY3K

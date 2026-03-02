@@ -167,7 +167,7 @@ except:
 vwrite(LINE, 1)
 try:
     vwrite(" * Importing module...", 1)
-    import libxml2
+    import xml.etree.ElementTree as ET
     import dmidecode
     if not root_user:
         vwrite("\n%s"%cyan("Not running as root, a warning above can be expected..."), 1)
@@ -315,7 +315,7 @@ try:
                     vwrite("   * XML: Testing bad type - dmidecodeXML::QueryTypeId(%s)..." % red(i), 1)
                     try:
                         output_node = dmixml.QueryTypeId(i)
-                        test(not isinstance(output_node, libxml2.xmlNode))
+                        test(not isinstance(output_node, dmidecode.XmlNode))
                     except SystemError:
                         vwrite("Accepted => ", 1)
                         failed()
@@ -330,7 +330,7 @@ try:
                     vwrite("   * XML: Testing dmidecodeXML::QueryTypeId(%s)..." % red(i), 1)
                     try:
                         output_node = dmixml.QueryTypeId(i)
-                        test(isinstance(output_node, libxml2.xmlNode))
+                        test(isinstance(output_node, dmidecode.XmlNode))
                     except Exception as e:
                         failed(e, 1)
                     except:
@@ -347,7 +347,7 @@ try:
                     ), 1)
                     try:
                         output_doc = dmixml.QuerySection(section)
-                        test(isinstance(output_doc, libxml2.xmlDoc))
+                        test(isinstance(output_doc, dmidecode.XmlDoc))
                     except Exception as e:
                         failed(e, 1)
                     except:
