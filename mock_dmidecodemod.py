@@ -85,6 +85,10 @@ def xmlapi(query_type, result_type, section=None, typeid=None):
             </dmi>"""
     
     elif query_type == 't':  # Type ID query
+        # The real extension passes typeid as a positional argument in the
+        # third slot when using the simplified xmlapi('t', rtype, tpid) API.
+        if typeid is None and section is not None:
+            typeid = section
         typeid_str = str(typeid)
         if typeid_str in test_data:
             return test_data[typeid_str]
