@@ -201,15 +201,15 @@ Status: 🚧 In progress (core API switched; compatibility surface not complete)
    ```python
    # Replace
    import libxml2
-   
+
    # With
    import xml.etree.ElementTree as ET
-   
+
    # Create wrapper classes
    class XmlNode:
        def __init__(self, element):
            self.element = element
-   
+
    class XmlDoc:
        def __init__(self, element_tree):
            self.element_tree = element_tree
@@ -241,7 +241,7 @@ Status: 🚧 In progress (XML serialization bridge implemented; build/packaging 
    char* serialize_libxml2_to_string(xmlNode* node) {
        // Implement XML serialization
    }
-   
+
    PyObject* create_elementtree_object(xmlNode* node) {
        char* xml_string = serialize_libxml2_to_string(node);
        // Call Python ElementTree.parse() on the string
@@ -264,7 +264,7 @@ Status: 🚧 In progress (unit test type checks updated; broader behavioral cove
    # Replace
    import libxml2
    test(isinstance(output_node, libxml2.xmlNode))
-   
+
    # With
    from xml.etree.ElementTree import Element
    test(isinstance(output_node.element, Element))

@@ -2,6 +2,7 @@
 #.awk '$0 ~ /case [0-9]+: .. 3/ { sys.stdout.write($2 }' src/dmidecode.c|tr ':\n' ', '
 
 from pprint import pprint
+import glob
 import os, sys, subprocess, random, tempfile, time
 if sys.version_info[0] < 3:
     import commands as subprocess
@@ -137,6 +138,41 @@ def vwrite(msg, vLevel=0):
         sys.stdout.flush()
 
 ################################################################################
+
+# Setup temporary sys.path() with our build dir
+
+def _add_build_paths():
+    """Make unit tests resilient across Python versions/build layouts.
+
+    Historically this test suite assumed a distutils build directory like:
+      ../build/lib.<sys>-<arch>-<pyver>
+
+    On newer Pythons the build directory often looks like:
+      ../build/lib.<platform>-<cache_tag>
+    (e.g. lib.linux-x86_64-cpython-313)
+    """
+
+    here = os.path.dirname(os.path.abspath(__file__))
+    repo_root = os.path.abspath(os.path.join(here, '..'))
+    build_root = os.path.join(repo_root, 'build')
+
+    # Always allow importing from repo root (useful for in-place builds)
+    if repo_root not in sys.path:
+        sys.path.insert(0, repo_root)
+
+    # Prefer any build/lib.* directory that contains dmidecode.py
+    candidates = sorted(glob.glob(os.path.join(build_root, 'lib.*')))
+    for p in candidates:
+        if os.path.exists(os.path.join(p, 'dmidecode.py')) and p not in sys.path:
+            sys.path.insert(0, p)
+
+    # Fallback: add all build/lib.* candidates (best-effort)
+    for p in candidates:
+        if p not in sys.path:
+            sys.path.insert(0, p)
+
+
+_add_build_paths()
 
 #. Let's ignore warnings from the module for the test units...
 err = open('/dev/null', 'a+', 1)

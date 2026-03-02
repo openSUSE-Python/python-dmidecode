@@ -695,25 +695,64 @@ static PyObject *dmidecode_xmlapi(PyObject *self, PyObject *args)
         xmlDoc *temp_doc = NULL;
         xmlNode *dmixml_n = NULL;
         xmlChar *xml_buffer = NULL;
-        char *sect_query = NULL, *qtype = NULL, *rtype = NULL;
+        const char *sect_query = NULL, *qtype = NULL, *rtype = NULL;
+        PyObject *third_arg = NULL;
         int type_query = -1;
         int buffer_size = 0;
 
-        // Parse arguments - we use a simpler interface for compatibility
-        if( !PyArg_ParseTuple(args, "ss|si", &qtype, &rtype, &sect_query, &type_query) ) {
+        // Parse arguments.
+        // We support both of these call shapes:
+        //   xmlapi('s', rtype, section)
+        //   xmlapi('t', rtype, typeid)
+        // And the legacy 4-arg variant:
+        //   xmlapi('t', rtype, section_placeholder, typeid)
+        if( !PyArg_ParseTuple(args, "ss|Oi", &qtype, &rtype, &third_arg, &type_query) ) {
                 return NULL;
+        }
+
+        if( third_arg == Py_None ) {
+                third_arg = NULL;
         }
 
         // Check for sensible arguments and retrieve the xmlNode with DMI data
         switch( *qtype ) {
         case 's': // Section / GroupName
+                if( third_arg == NULL ) {
+                        PyReturnError(PyExc_TypeError, "section argument cannot be NULL")
+                }
+                if( PyUnicode_Check(third_arg) ) {
+                        sect_query = PyUnicode_AsUTF8(third_arg);
+                } else if( PyBytes_Check(third_arg) ) {
+                        sect_query = PyBytes_AsString(third_arg);
+                } else {
+                        PyReturnError(PyExc_TypeError, "section argument must be str or bytes")
+                }
                 if( sect_query == NULL ) {
-                        PyReturnError(PyExc_TypeError, "section keyword cannot be NULL")
+                        // Exception already set by PyUnicode_AsUTF8() or PyBytes_AsString()
+                        return NULL;
                 }
                 dmixml_n = __dmidecode_xml_getsection(global_options, sect_query);
                 break;
 
         case 't': // TypeID / direct TypeMap
+                // Prefer a positional typeid in the third slot.
+                if( third_arg != NULL ) {
+                        if( PyLong_Check(third_arg) ) {
+                                long v = PyLong_AsLong(third_arg);
+                                if( PyErr_Occurred() ) {
+                                        return NULL;
+                                }
+                                type_query = (int) v;
+                        } else if( type_query < 0 && (PyUnicode_Check(third_arg) || PyBytes_Check(third_arg)) ) {
+                                // Backwards compatibility: allow typeid passed as string.
+                                const char *s = PyUnicode_Check(third_arg) ? PyUnicode_AsUTF8(third_arg)
+                                                                           : PyBytes_AsString(third_arg);
+                                if( s == NULL ) {
+                                        return NULL;
+                                }
+                                type_query = atoi(s);
+                        }
+                }
                 if( type_query < 0 ) {
                         PyReturnError(PyExc_TypeError,
                                       "typeid keyword must be set and must be a positive integer");
