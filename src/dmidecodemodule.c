@@ -656,7 +656,7 @@ static PyObject *dmidecode_get_slot(PyObject * self, PyObject * args)
 
 static PyObject *dmidecode_get_section(PyObject *self, PyObject *args)
 {
-        char *section = NULL;
+        const char *section = NULL;
         if (PyUnicode_Check(args)) {
                 section = PyUnicode_AsUTF8(args);
         } else if (PyBytes_Check(args)) {
@@ -834,7 +834,7 @@ static PyObject *dmidecode_get_dev(PyObject * self, PyObject * null)
 
 static PyObject *dmidecode_set_dev(PyObject * self, PyObject * arg)
 {
-        char *f = NULL;
+        const char *f = NULL;
         if(PyUnicode_Check(arg)) {
                 f = PyUnicode_AsUTF8(arg);
         } else if(PyBytes_Check(arg)) {
@@ -881,7 +881,7 @@ static PyObject *dmidecode_set_dev(PyObject * self, PyObject * arg)
 
 static PyObject *dmidecode_set_pythonxmlmap(PyObject * self, PyObject * arg)
 {
-        char *fname = NULL;
+        const char *fname = NULL;
 
         if (PyUnicode_Check(arg)) {
                 fname = PyUnicode_AsUTF8(arg);
@@ -1044,7 +1044,7 @@ initdmidecodemod(void)
         options *opt;
 
         xmlInitParser();
-        xmlXPathInit();
+        /* xmlXPathInit() is deprecated (no longer needed with libxml2 init) */
 
         opt = (options *) malloc(sizeof(options)+2);
         if (opt == NULL)

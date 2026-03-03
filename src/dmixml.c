@@ -77,18 +77,15 @@ static void dmixml_sanitize_xml_string(xmlChar *s)
  * @return xmlChar*     Pointer to the buffer of the string
  */
 xmlChar *dmixml_buildstr(size_t len, const char *fmt, va_list ap) {
-        xmlChar *ret = NULL, *xmlfmt = NULL;
+        xmlChar *ret = NULL;
         xmlChar *ptr = NULL;
 
         ret = (xmlChar *) malloc(len+2);
         assert( ret != NULL );
         memset(ret, 0, len+2);
 
-        xmlfmt = xmlCharStrdup(fmt);
-        assert( xmlfmt != NULL );
-
-        xmlStrVPrintf(ret, len, xmlfmt, ap);
-        free(xmlfmt);
+        /* xmlStrVPrintf expects a const char * format string */
+        xmlStrVPrintf(ret, len, (const char *)fmt, ap);
 
         dmixml_sanitize_xml_string(ret);
 
