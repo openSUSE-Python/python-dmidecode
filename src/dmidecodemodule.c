@@ -52,6 +52,15 @@
 #include "dmidump.h"
 #include <mcheck.h>
 
+/*
+ * PyMethodDef.ml_meth is typed as PyCFunction (2-arg), but METH_KEYWORDS
+ * functions take 3 args. CPython provides _PyCFunction_CAST() to silence
+ * cast-function-type warnings by casting via void(*)(void).
+ */
+#ifndef _PyCFunction_CAST
+#define _PyCFunction_CAST(func) ((PyCFunction)(void(*)(void))(func))
+#endif
+
 #if (PY_VERSION_HEX < 0x03030000)
 char *PyUnicode_AsUTF8(PyObject *unicode) {
         PyObject *as_bytes = PyUnicode_AsUTF8String(unicode);
@@ -689,16 +698,68 @@ static PyObject *dmidecode_get_type(PyObject * self, PyObject * args)
         return pydata;
 }
 
-static PyObject *dmidecode_xmlapi(PyObject *self, PyObject *args)
+static int pyobj_parse_int(PyObject *obj, int *out)
 {
+        long v;
+        char *end = NULL;
+
+        if (obj == NULL) {
+                return 0;
+        }
+
+        if (PyLong_Check(obj)) {
+                v = PyLong_AsLong(obj);
+                if (PyErr_Occurred()) {
+                        return -1;
+                }
+                *out = (int)v;
+                return 1;
+        }
+
+        if (PyUnicode_Check(obj)) {
+                const char *s = PyUnicode_AsUTF8(obj);
+                if (s == NULL) {
+                        return -1;
+                }
+                v = strtol(s, &end, 10);
+                if (end == s || *end != '\0') {
+                        return 0;
+                }
+                *out = (int)v;
+                return 1;
+        }
+
+        if (PyBytes_Check(obj)) {
+                char *s = PyBytes_AsString(obj);
+                if (s == NULL) {
+                        return -1;
+                }
+                v = strtol(s, &end, 10);
+                if (end == s || *end != '\0') {
+                        return 0;
+                }
+                *out = (int)v;
+                return 1;
+        }
+
+        return 0;
+}
+
+static PyObject *dmidecode_xmlapi(PyObject *self, PyObject *args, PyObject *kwds)
+{
+        (void)self;
         PyObject *pydata = NULL;
         xmlDoc *temp_doc = NULL;
         xmlNode *dmixml_n = NULL;
         xmlChar *xml_buffer = NULL;
         const char *sect_query = NULL, *qtype = NULL, *rtype = NULL;
-        PyObject *third_arg = NULL;
+        PyObject *section_arg = NULL;
+        PyObject *typeid_arg = NULL;
         int type_query = -1;
         int buffer_size = 0;
+        int parsed;
+        static char *kwlist[] = { (char *)"query_type", (char *)"result_type",
+                                  (char *)"section", (char *)"typeid", NULL };
 
         // Parse arguments.
         // We support both of these call shapes:
@@ -706,24 +767,31 @@ static PyObject *dmidecode_xmlapi(PyObject *self, PyObject *args)
         //   xmlapi('t', rtype, typeid)
         // And the legacy 4-arg variant:
         //   xmlapi('t', rtype, section_placeholder, typeid)
-        if( !PyArg_ParseTuple(args, "ss|Oi", &qtype, &rtype, &third_arg, &type_query) ) {
+        // As well as keyword args:
+        //   xmlapi(query_type='s', result_type=rtype, section=section)
+        //   xmlapi(query_type='t', result_type=rtype, typeid=typeid)
+        if( !PyArg_ParseTupleAndKeywords(args, kwds, "ss|OO", kwlist,
+                                         &qtype, &rtype, &section_arg, &typeid_arg) ) {
                 return NULL;
         }
 
-        if( third_arg == Py_None ) {
-                third_arg = NULL;
+        if( section_arg == Py_None ) {
+                section_arg = NULL;
+        }
+        if( typeid_arg == Py_None ) {
+                typeid_arg = NULL;
         }
 
         // Check for sensible arguments and retrieve the xmlNode with DMI data
         switch( *qtype ) {
         case 's': // Section / GroupName
-                if( third_arg == NULL ) {
+                if( section_arg == NULL ) {
                         PyReturnError(PyExc_TypeError, "section argument cannot be NULL")
                 }
-                if( PyUnicode_Check(third_arg) ) {
-                        sect_query = PyUnicode_AsUTF8(third_arg);
-                } else if( PyBytes_Check(third_arg) ) {
-                        sect_query = PyBytes_AsString(third_arg);
+                if( PyUnicode_Check(section_arg) ) {
+                        sect_query = PyUnicode_AsUTF8(section_arg);
+                } else if( PyBytes_Check(section_arg) ) {
+                        sect_query = PyBytes_AsString(section_arg);
                 } else {
                         PyReturnError(PyExc_TypeError, "section argument must be str or bytes")
                 }
@@ -735,27 +803,23 @@ static PyObject *dmidecode_xmlapi(PyObject *self, PyObject *args)
                 break;
 
         case 't': // TypeID / direct TypeMap
-                // Prefer a positional typeid in the third slot.
-                if( third_arg != NULL ) {
-                        if( PyLong_Check(third_arg) ) {
-                                long v = PyLong_AsLong(third_arg);
-                                if( PyErr_Occurred() ) {
-                                        return NULL;
-                                }
-                                type_query = (int) v;
-                        } else if( type_query < 0 && (PyUnicode_Check(third_arg) || PyBytes_Check(third_arg)) ) {
-                                // Backwards compatibility: allow typeid passed as string.
-                                const char *s = PyUnicode_Check(third_arg) ? PyUnicode_AsUTF8(third_arg)
-                                                                           : PyBytes_AsString(third_arg);
-                                if( s == NULL ) {
-                                        return NULL;
-                                }
-                                type_query = atoi(s);
+                // Prefer an explicit typeid= keyword / 4th positional arg.
+                parsed = pyobj_parse_int(typeid_arg, &type_query);
+                if( parsed < 0 ) {
+                        return NULL;
+                }
+
+                // Backwards compatibility: accept typeid passed in the 3rd slot.
+                if( parsed == 0 && section_arg != NULL ) {
+                        parsed = pyobj_parse_int(section_arg, &type_query);
+                        if( parsed < 0 ) {
+                                return NULL;
                         }
                 }
+
                 if( type_query < 0 ) {
                         PyReturnError(PyExc_TypeError,
-                                      "typeid keyword must be set and must be a positive integer");
+                                      "typeid must be set and must be a positive integer");
                 } else if( type_query > 255 ) {
                         PyReturnError(PyExc_ValueError,
                                       "typeid keyword must be an integer between 0 and 255");
@@ -803,6 +867,11 @@ static PyObject *dmidecode_xmlapi(PyObject *self, PyObject *args)
 
         // Return XML data as string
         return pydata;
+}
+
+static PyObject *dmidecode_xmlapi_kw(PyObject *self, PyObject *args, PyObject *kwds)
+{
+        return dmidecode_xmlapi(self, args, kwds);
 }
 
 
@@ -959,8 +1028,8 @@ static PyMethodDef DMIDataMethods[] = {
         {(char *)"pythonmap", dmidecode_set_pythonxmlmap, METH_O,
          (char *) "Use another python dict map definition. The default file is " PYTHON_XML_MAP},
 
-        {(char *)"xmlapi", dmidecode_xmlapi, METH_VARARGS,
-         (char *) "Internal API for retrieving data as raw XML data"},
+        {(char *)"xmlapi", _PyCFunction_CAST(dmidecode_xmlapi_kw), METH_VARARGS | METH_KEYWORDS,
+          (char *) "Internal API for retrieving data as raw XML data"},
 
 
         {(char *)"get_warnings", dmidecode_get_warnings, METH_NOARGS,

@@ -9,7 +9,7 @@ This document outlines the plan to migrate the python-dmidecode project from usi
 Porting work is in progress on branch `xml-elementtree-port`.
 
 - Python XML API has been switched to `xml.etree.ElementTree` and now returns wrapper types `dmidecode.XmlNode` / `dmidecode.XmlDoc` (`dmidecode.py`).
-- C extension `xmlapi()` no longer returns Python libxml2 objects; it serializes libxml2 `xmlNode` to XML bytes and returns `bytes` to Python (`src/dmidecodemodule.c`).
+- C extension `xmlapi()` no longer returns Python libxml2 objects; it serializes libxml2 `xmlNode` to XML bytes and returns `bytes` to Python (`src/dmidecodemodule.c`). `xmlapi()` accepts both positional and keyword arguments for compatibility.
 - Unit tests were updated to validate `dmidecode.XmlNode` / `dmidecode.XmlDoc` instead of `libxml2.xmlNode` / `libxml2.xmlDoc` (`unit-tests/unit`).
 
 Known gaps/blockers right now:
@@ -35,7 +35,7 @@ The project currently uses libxml2 in several key areas:
 2. **C Extension** (`src/dmidecodemodule.c`, `src/libxml_wrap.h`):
     - Uses libxml2 C API extensively
     - Creates XML documents and nodes using libxml2 functions
-    - `xmlapi()` returns serialized XML (`bytes`) instead of Python libxml2 wrapper objects
+    - `xmlapi()` returns serialized XML (`bytes`) instead of Python libxml2 wrapper objects. Input args can be positional or keywords (`query_type`, `result_type`, `section`, `typeid`).
 
 3. **Testing** (`unit-tests/unit`):
     - Validates return types as `dmidecode.XmlNode` / `dmidecode.XmlDoc`

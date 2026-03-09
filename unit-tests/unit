@@ -8,11 +8,6 @@ if sys.version_info[0] < 3:
     import commands as subprocess
 from getopt import getopt
 
-# Setup temporary sys.path() with our build dir
-(sysname, nodename, release, version, machine) = os.uname()
-pyver = sys.version[:3]
-sys.path.insert(0,'../build/lib.%s-%s-%s' % (sysname.lower(), machine, pyver))
-
 root_user = (os.getuid() == 0 and True or False)
 
 ERROR = False

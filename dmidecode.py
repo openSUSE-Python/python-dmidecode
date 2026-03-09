@@ -41,7 +41,8 @@ class XmlNode:
     
     def __getattr__(self, name):
         """Delegate attribute access to the underlying Element"""
-        return getattr(self.element, name)
+        element = object.__getattribute__(self, 'element')
+        return getattr(element, name)
 
 class XmlDoc:
     """
@@ -57,7 +58,8 @@ class XmlDoc:
     
     def __getattr__(self, name):
         """Delegate attribute access to the underlying ElementTree"""
-        return getattr(self.element_tree, name)
+        element_tree = object.__getattribute__(self, 'element_tree')
+        return getattr(element_tree, name)
 
 class dmidecodeXML:
     "Native Python API for retrieving dmidecode information as XML"
@@ -82,7 +84,7 @@ class dmidecodeXML:
     def _create_xml_from_string(self, xml_string):
         """
         Internal method to create XML objects from string representation
-        This will be used when the C extension returns XML as strings
+        This will be used when the C extension returns XML as bytes (or str)
         """
         try:
             element = ET.fromstring(xml_string)
@@ -114,4 +116,3 @@ class dmidecodeXML:
         
         # Convert to appropriate XML object
         return self._create_xml_from_string(xml_string)
-
